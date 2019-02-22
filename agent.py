@@ -8,21 +8,21 @@ for i in range(4,0,-1):
     print(i)
     time.sleep(1)
 
-print ('down')
+print ('go')
+
 pyautogui.keyDown('w')
-# time.sleep(3)
-# print('up')
-pyautogui.keyUp('w')
-pyautogui.keyDown('w')
-pyautogui.keyUp('w')
-pyautogui.keyDown('w')
-pyautogui.keyUp('w')
-pyautogui.keyDown('w')
-pyautogui.keyUp('w')
-pyautogui.keyDown('w')
-pyautogui.keyUp('w')
-pyautogui.keyDown('w')
-pyautogui.keyDown('s')
+time.sleep(2)
+
+for i in range (100):
+    a= 'a'
+    b= 'd'
+    if i%2==0:
+        a , b = b ,a
+    pyautogui.keyDown(a)
+    time.sleep(.3)
+    pyautogui.keyUp(b)
+    pyautogui.keyDown(a)
+
 
 
 
