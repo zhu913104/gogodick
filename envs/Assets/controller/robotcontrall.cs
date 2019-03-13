@@ -54,15 +54,21 @@ public class robotcontrall : MonoBehaviour {
         float f = Input.GetAxisRaw("Horizontal");
         f = f * senstivity * smoothing;
         rr += f;
-        Debug.Log("rr:" + rr + "f:" + f + "Transform:" + this.GetComponent<Transform>().eulerAngles.y);
 
         Quaternion target = Quaternion.Euler(0, rr, 0);
 
         character.transform.rotation = Quaternion.Slerp(transform.rotation, target, smoothing);
-        Debug.Log("f!=0");
-        
-        
-        
+
+        void OnCollisionEnter(Collision collision)
+        {
+            Debug.Log("ININ");
+            if (gameObject.tag == "baba")
+            {
+                Debug.Log("BABA");
+            }
+        }
+
+
 
 
 
