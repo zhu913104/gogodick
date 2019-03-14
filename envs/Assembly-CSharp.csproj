@@ -55,8 +55,11 @@
   <ItemGroup>
      <Compile Include="Assets\controller\bb8body.cs" />
      <Compile Include="Assets\controller\camMouseLook.cs" />
+     <Compile Include="Assets\controller\Cangecolorinobj.cs" />
+     <Compile Include="Assets\controller\changecolor.cs" />
      <Compile Include="Assets\controller\charactercontroller.cs" />
      <Compile Include="Assets\controller\com.cs" />
+     <Compile Include="Assets\controller\helloworld.cs" />
      <Compile Include="Assets\controller\NewBehaviourScript.cs" />
      <Compile Include="Assets\controller\robotcontrall.cs" />
      <Compile Include="Assets\DepthVisualize\DepthVisualization.cs" />

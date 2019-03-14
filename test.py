@@ -11,7 +11,7 @@ hwnd = grabscreen.FindWindow_bySearch("envs")
 
 print(hwnd)
 
-def efff(x,m):    
+def normalization_fram(x,m):    
     y = np.array((x**m)/(255**m)*255,dtype=np.uint8)
     return y
 
@@ -22,7 +22,7 @@ while True:
     
     frame = grabscreen.getWindow_Img(hwnd)
     frame = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
-    frame  =  efff(frame,0.6)
+    frame  =  normalization_fram(frame,0.6)
     frame = frame[28:,:1600]
     hist = cv2.calcHist([frame], [0], None, [256], [0, 256])
     
@@ -36,6 +36,5 @@ while True:
     plt.cla()
     k = cv2.waitKey(30)&0xFF #64bits! need a mask
     if k ==27:
-
         cv2.destroyAllWindows()
         break

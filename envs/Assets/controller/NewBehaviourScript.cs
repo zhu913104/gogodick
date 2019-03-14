@@ -8,34 +8,43 @@ using System.Threading;
 
 public class NewBehaviourScript : MonoBehaviour {
 
-	// Use this for initialization
-	void Start () {
-		
-	}
+
+    // Use this for initialization
+    void Start () {
+        
+
+    }
 	
 	// Update is called once per frame
 	void Update () {
 
         if (Input.GetKey(KeyCode.D) && Input.GetKey(KeyCode.W)) 
         {
-            Thread threada = new Thread(new ThreadStart(reword_0));
-            threada.Name = "A Thread";
-            threada.Start();
+            //Thread threada = new Thread(new ThreadStart(reword_0));
+            //threada.Name = "A Thread";
+            //threada.Start();
             
-        }
-        else if (Input.GetKey(KeyCode.A) && Input.GetKey(KeyCode.W))
-        {
-            Thread threada = new Thread(new ThreadStart(reword_0));
-            threada.Name = "A Thread";
-            threada.Start();
+            //Debug.Log("0");
 
         }
-
-        else if(Input.GetKey(KeyCode.W))
+        else if (Input.GetKey(KeyCode.A) && Input.GetKey(KeyCode.W) )
         {
-            Thread threada = new Thread(new ThreadStart(reword_1));
-            threada.Name = "A Thread";
-            threada.Start();
+            //Thread threada = new Thread(new ThreadStart(reword_0));
+            //threada.Name = "A Thread";
+            //threada.Start();
+
+            //Debug.Log("0");
+        }
+
+        else if(Input.GetKey(KeyCode.W) )
+        {
+            //Thread threada = new Thread(new ThreadStart(reword_1));
+            //threada.Name = "A Thread";
+            //threada.Start();
+            //GameObject.Find("Image").GetComponent<Color>().color = new Color32(255, 255, 225, 100);
+            //Debug.Log("1");
+            GetComponent<UnityEngine.UI.Image>().color = new Color32(255, 255, 225, 100);
+            Debug.Log(GetComponent<UnityEngine.UI.Image>().color);
 
         }
     }
@@ -43,13 +52,19 @@ public class NewBehaviourScript : MonoBehaviour {
 
     void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.tag == "baba")
-        {
-            Thread threada = new Thread(new ThreadStart(reword__1));
-            threada.Name = "A Thread";
-            threada.Start();
 
-            Application.LoadLevel(Application.loadedLevel);
+
+        if (collision.gameObject.tag == "baba" )
+        {
+            //Thread threada = new Thread(new ThreadStart(reword__1));
+            //threada.Name = "A Thread";
+            //threada.Start();
+            //Debug.Log("-1");
+
+
+            UnityEngine.SceneManagement.SceneManager.LoadScene("2");
+
+
         }
     }
     void reword_1()

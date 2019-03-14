@@ -41,15 +41,14 @@ public class com : MonoBehaviour {
 
                 for (int i = 0; i < 1; i++)
                 {
-                    Debug.Log("Sending Hello");
-                    client.SendFrame("Hello");
+                    Debug.Log("Sending :");
+                    client.SendFrame("hello");
 
                     var message = client.ReceiveFrameString();
-                    Debug.Log("Received" + client.ReceiveFrameString());
+                    Debug.Log("Received :" + client.ReceiveFrameString());
                 }
             }
             NetMQConfig.Cleanup(); // this line is needed to prevent unity freeze after one use, not sure why yetNetMQConfig.Cleanup(); // this line is needed to prevent unity freeze after one use, not sure why yet
-        
         
     }
 

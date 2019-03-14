@@ -15,9 +15,6 @@ while True:
     #  Wait for next request from client
     message = socket.recv()
     print("Received request: %s" % message)
-
     #  Do some 'work'
-
-
     #  Send reply back to client
     socket.send(message)
