@@ -6,8 +6,8 @@ using System.Threading;
 
 public class Cangecolorinobj : MonoBehaviour
 {
-    
-    public GameObject UIcolor;
+    private int scenesMax = 5; 
+    private GameObject UIcolor;
     private bool Touchdown;
 
     // Start is called before the first frame update
@@ -59,6 +59,7 @@ public class Cangecolorinobj : MonoBehaviour
     }
     void loadScene()
     {
-        UnityEngine.SceneManagement.SceneManager.LoadScene("1");
+        
+        UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.Random.Range(0, scenesMax));
     }
 }
