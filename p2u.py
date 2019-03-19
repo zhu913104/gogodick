@@ -13,10 +13,11 @@ log = np.array([0,0,0])
 
 reword = 0
 t = time.time()
-act = "forword"
-for i in range(4,0,-1):
-    print(i)
-    time.sleep(1)
+
+# act = "forword"
+# for i in range(4,0,-1):
+#     print(i)
+#     time.sleep(1)
 
 def normalization_fram(x,m):    
     y = np.array((x**m)/(255**m)*255,dtype=np.uint8)
@@ -44,54 +45,63 @@ def _stop():
     pyautogui.keyUp('d')
     pyautogui.keyUp('a')
     pyautogui.keyUp('w')
-    time.sleep(1)
     pyautogui.keyDown('w')
     
-
-
-
-act =forword()
-
-
-while True:
-    #  Wait for next request from client
+def get_state(hwnd,zoom):
     frame = grabscreen.getWindow_Img(hwnd)
     frame = frame[28:,:1600]
     frame = cv2.cvtColor(frame,cv2.COLOR_RGB2GRAY)
-    frameNL  =  normalization_fram(frame,0.6)
-    frameNLL = cv2.resize(frameNL,(160,160))
+    frame  =  normalization_fram(frame,0.6)
+    frame = cv2.resize(frame,(zoom,zoom))
 
-    # if int(time.time()-t ) %4==0 and act!="forword":
-    #     act =  forword()
-    # elif int(time.time()-t ) %4==1 and act!="left":
-    #     t1 = time.time()
-    #     act =left()
-    # elif int(time.time()-t ) %4==2 and act!="forword":
-    #     act =forword()
-    # elif int(time.time()-t ) %4==3 and act!="right":
-    #     t1 = time.time()
-    #     act =right()
+    return frame
 
-
-
-    # rewordpix = frame[7,-7]
+def get_reword(frame):
+    rewordpix = frame[1,-1]
     
-    # if rewordpix == 255:
-    #     reword = 1
-    # elif rewordpix ==0:
-    #     reword = -1
-    #     _stop()
-    # else:
-    #     reword = 0
+    if rewordpix == 255:
+        return 1
+    elif rewordpix ==0:
+        # _stop()
+        return  -1
+    else:
+        return  0
+
+
+def stack_state(frame,stack,num=3):
+    if stack.any()==0:
+        stack = np.stack((frame,frame))
+        if num>2:
+            for i in range(num-2):
+                stack = np.vstack((stack,[frame]))
+            return stack
+        else:
+            return stack
+    else:
+        stack = np.vstack(([frame],stack[:(num-1),:,:]))
+        return stack
+nums = 4
+stack = np.array([0])
+while True:
+    #  Wait for next request from client
     
+    frame = get_state(hwnd,500)
+    x = get_reword(frame)
+
+    stack = stack_state(frame,stack,nums)
+
+    s = np.sum(stack,axis=0 )
+    s =s/(nums)
+    s= np.array(s,dtype = np.uint8)
+
+
     # log = np.vstack((log,[act,reword,time.time()-t]))
 
 
     # print([act,reword,time.time()-t])
 
-    
-
-    cv2.imshow("frameNLL", frameNLL)
+    cv2.imshow("frameNLL", frame)
+    cv2.imshow("s", s)
 
     k = cv2.waitKey(30)&0xFF #64bits! need a mask
     if k ==27:
