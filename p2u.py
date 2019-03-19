@@ -14,12 +14,15 @@ hwnd = grabscreen.FindWindow_bySearch("envs")
 
 log = np.array([0,0,0])
 
-reword = 0
+np.random.seed(10)
+tf.set_random_seed(10)  # reproducible
+
+
 t = time.time()
 OUTPUT_GRAPH = False
-MAX_EPISODE = 3000
+MAX_EPISODE = 3000000
 DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
-MAX_EP_STEPS = 1000   # maximum time step in one episode
+MAX_EP_STEPS = 20   # maximum time step in one episode
 RENDER = False  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.001    # learning rate for actor
@@ -31,10 +34,10 @@ LR_C = 0.01     # learning rate for critic
 
 N_F = 80
 N_A = 3
-# act = "forword"
-# for i in range(4,0,-1):
-#     print(i)
-#     time.sleep(1)
+act = "forword"
+for i in range(4,0,-1):
+    print(i)
+    time.sleep(1)
 
 
 t= 0
@@ -63,17 +66,18 @@ class env(object):
     def left(self):
         pyautogui.keyUp('d')
         pyautogui.keyDown('a')
-
+        pyautogui.keyDown('w')
 
     def right(self):
         pyautogui.keyUp('a')
         pyautogui.keyDown('d')
-
+        pyautogui.keyDown('w')
     
     def _stop(self):
         pyautogui.keyUp('d')
         pyautogui.keyUp('a')
         pyautogui.keyUp('w')
+        time.sleep(1)
         pyautogui.keyDown('w')
         
     def _state(self):
@@ -303,24 +307,40 @@ ENVS = env(hwnd, N_F,nums)
 ##########################################################################################################################
 for i_episode in range(MAX_EPISODE):
     s =  ENVS.get_state()
+    s=s/255
     t = 0
     track_r = []
     done =False
-    ENVS.action(0)
-    RENDER = True
-    while True:
 
+    
+    print("set")
+    time.sleep(2)
+    ENVS.action(0)
+    print("ON")
+    while True:
+        
         a = actor.choose_action(s)
+        # a = np.random.randint(3)
         ENVS.action(a)
         s_, r = ENVS.get_state() ,ENVS.get_reword()
+        s_=s_/255
+        if a ==0:
+            act = 'forward'
+        elif a ==1:
+            act = 'left'
+        elif a==2:
+            act = 'right'
+        print("action: ",act)
 
 
-        print("action",a,"reword",r)
         if r==-1: 
             r = -20
             done = True
+        elif r ==0:
+            r=-1
+            done =False
         else:
-            r=r
+            r=2
             done =False
 
         track_r.append(r)
@@ -347,8 +367,7 @@ for i_episode in range(MAX_EPISODE):
             else:
                 running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
             if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
-            print("episode:", i_episode, "  reward:", int(running_reward))
-            print(a)
+            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum)
             break
 
 
