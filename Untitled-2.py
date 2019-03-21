@@ -57,7 +57,7 @@ class env(object):
         self.frame = grabscreen.getWindow_Img(self.hwnd)
         self.frame = self.frame[28:,:1600]
         self.frame = cv2.cvtColor(self.frame,cv2.COLOR_RGB2GRAY)
-        self.frame  =  self.normalization_fram(self.frame,0.6)
+        self.frame  =  self.normalization_fram(self.frame,0.8)
         self.frame = cv2.resize(self.frame,(self.zoom,self.zoom))
         return self.frame
 
@@ -107,9 +107,6 @@ class env(object):
         elif act ==2:
             self.right() 
 
-
-
-
 zoom = 160
 nums =1
 act = 0
@@ -127,13 +124,11 @@ while True:
     s_ ,r= eee.get_state(),eee.get_reword()
 
     s=s_
-    
-
-
+    cv2.imshow("xx",s_)
 
 
     print("ACTION",act,"REWORD",r,"TIME",t)
-    cv2.imshow("s", s)
+
     t+=1
     k = cv2.waitKey(30)&0xFF #64bits! need a mask
     if k ==27:
