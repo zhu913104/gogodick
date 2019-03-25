@@ -7,7 +7,7 @@ import numpy as np
 import time
 import pyautogui
 import tensorflow as tf
-
+import datetime
 
 
 hwnd = grabscreen.FindWindow_bySearch("envs")
@@ -18,31 +18,28 @@ np.random.seed(2)
 tf.set_random_seed(2)  # reproducible
 
 
-t = time.time()
+
 OUTPUT_GRAPH = False
-MAX_EPISODE = 300000000
-DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
-MAX_EP_STEPS = 200   # maximum time step in one episode
+# DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
+MAX_EP_STEPS = 100   # maximum time step in one episode
+MAX_TIME = 86400 #a day 
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
-LR_A = 0.0001    # learning rate for actor
-LR_C = 0.01     # learning rate for critic
-ENTROPY_BETA = 0.001
+LR_A = 0.00001    # learning rate for actor
+LR_C = 0.0001     # learning rate for critic
 # env = gym.make('CartPole-v0')
 # env.seed(1)  # reproducible
 # env = env.unwrapped
-
+date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 N_F = 80
 N_A = 3
-act = "forword"
+
 for i in range(4,0,-1):
     print(i)
     time.sleep(1)
 
 
-t= 0
-nums = 1
-zoom= 500
+nums = 3
 frame_muti = False
 
 class env(object):
@@ -76,12 +73,16 @@ class env(object):
         pyautogui.keyDown('d')
         pyautogui.keyDown('w')
     
-    def _stop(self):
+    def reset(self):
+        pyautogui.keyDown('r')
         pyautogui.keyUp('d')
         pyautogui.keyUp('a')
         pyautogui.keyUp('w')
-        time.sleep(1)
-        pyautogui.keyDown('w')
+        pyautogui.keyUp('r')
+        
+        
+    
+
         
     def _state(self):
         self.frame = grabscreen.getWindow_Img(self.hwnd)
@@ -110,12 +111,12 @@ class env(object):
             pass
         else :
             if self.stack.any()==0:
-                self.stack = np.stack((self.frame,self.frame))
+                self.stack = np.dstack((self.frame,self.frame))
                 if self.num>2:
                     for i in range(self.num-2):
-                        self.stack = np.vstack((self.stack,[self.frame]))
+                        self.stack = np.dstack((self.stack,self.frame))
             else:
-                self.stack = np.vstack(([self.frame],self.stack[:(self.num-1),:,:]))
+                self.stack = np.dstack((self.frame,self.stack[:,:,:(self.num-1)]))
 
     def get_state(self):
         self.stack_state()
@@ -125,7 +126,7 @@ class env(object):
             return self.stack
 
         else:
-            self.stack_m = np.sum(self.stack,axis=0 )
+            self.stack_m = np.sum(self.stack,axis=2 )
             self.stack_m =self.stack_m/(self.num)
             self.stack_m= np.array(self.stack_m,dtype = np.uint8)
             return self.stack_m
@@ -157,7 +158,7 @@ class Actor(object):
 
         with tf.variable_scope('Actor'):
 
-            c1 = tf.layers.conv2d(
+            c1= tf.layers.conv2d(
                 inputs = self.s,
                 filters = 16,
                 kernel_size = (8,8),
@@ -167,14 +168,11 @@ class Actor(object):
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c1',
             )
-            p1 = tf.layers.max_pooling2d(
-                inputs=c1, 
-                pool_size=[4, 4], 
-                strides=2)
+
 
 
             c2 = tf.layers.conv2d(
-                inputs = p1,
+                inputs = c1,
                 filters = 32,
                 kernel_size = (4,4),
                 strides=(2,2),
@@ -183,14 +181,10 @@ class Actor(object):
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c2',
             )
-            p2 = tf.layers.max_pooling2d(
-                inputs=c2, 
-                pool_size=[2, 2], 
-                strides=1)
 
 
             fl = tf.layers.flatten(
-                inputs = p2,
+                inputs = c2,
                 name= 'fl'
                 )
 
@@ -244,7 +238,7 @@ class Actor(object):
         else :
             s = s[np.newaxis, :]
         probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
-        print(probs.ravel(),np.argmax(probs.ravel()))
+        print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
         return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
 
 
@@ -274,14 +268,11 @@ class Critic(object):
             )
 
 
-            p1 = tf.layers.max_pooling2d(
-                inputs=c1, 
-                pool_size=[4, 4], 
-                strides=2)
+ 
 
 
             c2 = tf.layers.conv2d(
-                inputs = p1,
+                inputs = c1,
                 filters = 32,
                 kernel_size = (4,4),
                 strides=(2,2),
@@ -290,14 +281,10 @@ class Critic(object):
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c2',
             )
-            p2 = tf.layers.max_pooling2d(
-                inputs=c2, 
-                pool_size=[2, 2], 
-                strides=1)
 
 
             fl = tf.layers.flatten(
-                inputs = p2,
+                inputs = c2,
                 name= 'fl'
                 )
 
@@ -349,28 +336,26 @@ ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 
 actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
 critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
-
 sess.run(tf.global_variables_initializer())
 
 
 
+t = time.time()
 
-##################################################################################################
+i_episode=0
 
+value_log = np.array([0,0])
 
-
-
-##########################################################################################################################
-for i_episode in range(MAX_EPISODE):
+while time.time()-t < MAX_TIME:
     s =  ENVS.get_state()
     s=s/255
-    t = 0
+    count=0
     track_r = []
-    done =False
-    
-    time.sleep(2)
-    ENVS.action(0)
 
+    
+    time.sleep(0.5)
+    ENVS.action(0)
+    i_episode+=1
     while True:
         
         a = actor.choose_action(s)
@@ -378,34 +363,27 @@ for i_episode in range(MAX_EPISODE):
         ENVS.action(a)
         s_, r = ENVS.get_state() ,ENVS.get_reword()
         s_=s_/255
-        if a ==0:
-            act = 'forward'
-        elif a ==1:
-            act = 'left'
-        elif a==2:
-            act = 'right'
-        # print("action: ",act)
+
 
         if r==-1: 
             r = -5
-            done = True
+
         elif r ==0:
-            r=0.5
-            done =False
+            r=0.8
+
         elif r ==1:
             r=1
-            done =False
+
 
         track_r.append(r)
         td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-
         ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
-        print('td_error:',td_error[0][0],"REWORD:",r)
+        # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
-        t += 1
+        count += 1
 
         if RENDER:
-            cv2.imshow("s", s)
+            cv2.imshow("s1", s)
             k = cv2.waitKey(30)&0xFF #64bits! need a mask
             if k ==27:
                 cv2.destroyAllWindows()
@@ -413,17 +391,19 @@ for i_episode in range(MAX_EPISODE):
 
 
 
-        if done or t >= MAX_EP_STEPS:
+        if  count >= MAX_EP_STEPS:
             ep_rs_sum = sum(track_r)
-
+            ENVS.reset()
             if 'running_reward' not in globals():
-                running_reward = ep_rs_sum
+                running_reward = ep_rs_sum* 0.05
             else:
                 running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-            if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
+            
+            # if running_reward > DISPLAY_REWARD_THRESHOLD: 
+            #     RENDER = True  # rendering
+            
+            value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
+            np.save("log/three_frame_stack_"+date,value_log)
+            
             print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum)
             break
-
-
-
-

@@ -23,7 +23,7 @@ OUTPUT_GRAPH = False
 # DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 100   # maximum time step in one episode
 MAX_TIME = 86400 #a day 
-RENDER = True  # rendering wastes time
+RENDER = False  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.00001    # learning rate for actor
 LR_C = 0.0001     # learning rate for critic
@@ -31,15 +31,15 @@ LR_C = 0.0001     # learning rate for critic
 # env.seed(1)  # reproducible
 # env = env.unwrapped
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
-N_F = 800
+N_F = 80
 N_A = 3
 
-# for i in range(4,0,-1):
-#     print(i)
-#     time.sleep(1)w
+for i in range(4,0,-1):
+    print(i)
+    time.sleep(1)
 
 
-nums = 3
+nums = 1
 frame_muti = False
 
 class env(object):
@@ -111,12 +111,12 @@ class env(object):
             pass
         else :
             if self.stack.any()==0:
-                self.stack = np.dstack((self.frame,self.frame))
+                self.stack = np.stack((self.frame,self.frame))
                 if self.num>2:
                     for i in range(self.num-2):
-                        self.stack = np.dstack((self.stack,self.frame))
+                        self.stack = np.vstack((self.stack,[self.frame]))
             else:
-                self.stack = np.dstack((self.frame,self.stack[:,:,:(self.num-1)]))
+                self.stack = np.vstack(([self.frame],self.stack[:(self.num-1),:,:]))
 
     def get_state(self):
         self.stack_state()
@@ -126,7 +126,7 @@ class env(object):
             return self.stack
 
         else:
-            self.stack_m = np.sum(self.stack,axis=2 )
+            self.stack_m = np.sum(self.stack,axis=0 )
             self.stack_m =self.stack_m/(self.num)
             self.stack_m= np.array(self.stack_m,dtype = np.uint8)
             return self.stack_m
@@ -334,9 +334,9 @@ sess = tf.Session()
 
 ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 
-# actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
-# critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
-# sess.run(tf.global_variables_initializer())
+actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
+critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
+sess.run(tf.global_variables_initializer())
 
 
 
@@ -358,9 +358,9 @@ while time.time()-t < MAX_TIME:
     i_episode+=1
     while True:
         
-        # a = actor.choose_action(s)
+        a = actor.choose_action(s)
 
-        # ENVS.action(a)
+        ENVS.action(a)
         s_, r = ENVS.get_state() ,ENVS.get_reword()
         s_=s_/255
 
@@ -375,18 +375,15 @@ while time.time()-t < MAX_TIME:
             r=1
 
 
-        # track_r.append(r)
-        # td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-        # ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
-        # # print('td_error:',td_error[0][0],"REWORD:",r)
+        track_r.append(r)
+        td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
+        ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
+        # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
-        print(s.shape)
         count += 1
-        
+
         if RENDER:
-            cv2.imshow("s0", s)
-
-
+            cv2.imshow("s", s)
             k = cv2.waitKey(30)&0xFF #64bits! need a mask
             if k ==27:
                 cv2.destroyAllWindows()
@@ -396,7 +393,7 @@ while time.time()-t < MAX_TIME:
 
         if  count >= MAX_EP_STEPS:
             ep_rs_sum = sum(track_r)
-            # ENVS.reset()
+            ENVS.reset()
             if 'running_reward' not in globals():
                 running_reward = ep_rs_sum* 0.05
             else:
