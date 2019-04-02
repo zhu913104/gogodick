@@ -25,12 +25,11 @@ MAX_EP_STEPS = 100   # maximum time step in one episode
 MAX_TIME = 86400 #a day 
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
-LR_A = 0.00001    # learning rate for actor
-LR_C = 0.0001     # learning rate for critic
+
 # env = gym.make('CartPole-v0')
 # env.seed(1)  # reproducible
 # env = env.unwrapped
-date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+
 N_F = 80
 N_A = 3
 
@@ -39,8 +38,8 @@ for i in range(4,0,-1):
     time.sleep(1)
 
 
-nums = 3
-frame_muti = False
+nums = 1
+frame_muti = True
 
 class env(object):
     def __init__(self, hwnd, zoom,num,frame_muti):
@@ -329,81 +328,123 @@ class Critic(object):
 
 
 
-sess = tf.Session()
+# sess = tf.Session()
 
 
 ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 
-actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
-critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
-sess.run(tf.global_variables_initializer())
+# actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
+# critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
+# sess.run(tf.global_variables_initializer())
 
 
 
 t = time.time()
 
-i_episode=0
 
-value_log = np.array([0,0])
 
-while time.time()-t < MAX_TIME:
-    s =  ENVS.get_state()
-    s=s/255
-    count=0
-    track_r = []
 
-    
-    time.sleep(0.5)
-    ENVS.action(0)
-    i_episode+=1
-    while True:
+for mode in range(3,6):
+
+
+    value_log = np.array([0,0])
+    i_episode=0
+    date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+    if mode ==0:
+        LR_A = 0.00001    # learning rate for actor
+        LR_C = 0.00005     # learning rate for critic
+    elif mode ==1:
+        LR_A = 0.00001    # learning rate for actor
+        LR_C = 0.0005     # learning rate for critic
+    elif mode ==2:
+        LR_A = 0.000005    # learning rate for actor
+        LR_C = 0.0001     # learning rate for critic
+    elif mode ==3:
+        LR_A = 0.000005    # learning rate for actor
+        LR_C = 0.0005     # learning rate for critic
+    elif mode ==4:
+        LR_A = 0.00005    # learning rate for actor
+        LR_C = 0.0001     # learning rate for critic
+    elif mode ==5:
+        LR_A = 0.00005    # learning rate for actor
+        LR_C = 0.00005     # learning rate for critic
+
+    ##mode1##
+    # LR_A = 0.00001    # learning rate for actor
+    # LR_C = 0.0001     # learning rate for critic
+    ##mode2##
+    # LR_A = 0.000005    # learning rate for actor
+    # LR_C = 0.00005     # learning rate for critic
+
+    ##mode3##
+    # LR_A = 0.00005    # learning rate for actor
+    # LR_C = 0.0005     # learning rate for critic
+
+    sess = tf.Session()
+    actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
+    critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
+    sess.run(tf.global_variables_initializer())
+    tf.reset_default_graph()
+
+
+    for i in range(1001) :
+        s =  ENVS.get_state()
+        s=s/255
+        count=0
+        track_r = []
+
         
-        a = actor.choose_action(s)
+        time.sleep(0.5)
+        ENVS.action(0)
+        i_episode+=1
+        while True:
+            
+            a = actor.choose_action(s)
 
-        ENVS.action(a)
-        s_, r = ENVS.get_state() ,ENVS.get_reword()
-        s_=s_/255
-
-
-        if r==-1: 
-            r = -5
-
-        elif r ==0:
-            r=0.8
-
-        elif r ==1:
-            r=1
+            ENVS.action(a)
+            s_, r = ENVS.get_state() ,ENVS.get_reword()
+            s_=s_/255
 
 
-        track_r.append(r)
-        td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-        ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
-        # print('td_error:',td_error[0][0],"REWORD:",r)
-        s = s_
-        count += 1
+            if r==-1: 
+                r = -5
 
-        if RENDER:
-            cv2.imshow("s1", s)
-            k = cv2.waitKey(30)&0xFF #64bits! need a mask
-            if k ==27:
-                cv2.destroyAllWindows()
+            elif r ==0:
+                r=0.8
+
+            elif r ==1:
+                r=1
+
+
+            track_r.append(r)
+            td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
+            ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
+            # print('td_error:',td_error[0][0],"REWORD:",r)
+            s = s_
+            count += 1
+
+            if RENDER:
+                cv2.imshow("s1", s)
+                k = cv2.waitKey(30)&0xFF #64bits! need a mask
+                if k ==27:
+                    cv2.destroyAllWindows()
+                    break
+
+
+
+            if  count >= MAX_EP_STEPS:
+                ep_rs_sum = sum(track_r)
+                ENVS.reset()
+                if 'running_reward' not in globals():
+                    running_reward = ep_rs_sum* 0.05
+                else:
+                    running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
+                
+                # if running_reward > DISPLAY_REWARD_THRESHOLD: 
+                #     RENDER = True  # rendering
+                
+                value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
+                np.save("log/mode_"+str(mode+4)+"_"+date,value_log)
+                
+                print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum)
                 break
-
-
-
-        if  count >= MAX_EP_STEPS:
-            ep_rs_sum = sum(track_r)
-            ENVS.reset()
-            if 'running_reward' not in globals():
-                running_reward = ep_rs_sum* 0.05
-            else:
-                running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-            
-            # if running_reward > DISPLAY_REWARD_THRESHOLD: 
-            #     RENDER = True  # rendering
-            
-            value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
-            np.save("log/three_frame_stack_"+date,value_log)
-            
-            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum)
-            break
