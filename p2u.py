@@ -344,7 +344,7 @@ t = time.time()
 
 
 
-for mode in range(3,6):
+for mode in range(5,6):
 
 
     value_log = np.array([0,0])
