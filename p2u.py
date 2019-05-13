@@ -33,12 +33,12 @@ GAMMA = 0.9     # reward discount in TD error
 N_F = 80
 N_A = 3
 
-for i in range(4,0,-1):
-    print(i)
-    time.sleep(1)
+# for i in range(4,0,-1):
+#     print(i)
+#     time.sleep(1)
 
 
-nums = 3
+nums = 1
 frame_muti = True
 
 class env(object):
@@ -346,7 +346,7 @@ t = time.time()
 value_log = np.array([0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
-LR_A = 0.00005    # learning rate for actor
+LR_A = 0.00001    # learning rate for actor
 LR_C = 0.0001    # learning rate for critic
 
 sess = tf.Session()
@@ -360,8 +360,9 @@ saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
 checkpoint = tf.train.get_checkpoint_state("saved_networks")
 if checkpoint and checkpoint.model_checkpoint_path:
-    saver.restore(sess, checkpoint.model_checkpoint_path)
-    print("Successfully loaded:", checkpoint.model_checkpoint_path)
+    # saver.restore(sess, checkpoint.model_checkpoint_path)
+    # print("Successfully loaded:", checkpoint.model_checkpoint_path)
+    pass
 else:
     print("Could not find old network weights")
 
@@ -413,11 +414,11 @@ while True:
 
 
         if  count >= MAX_EP_STEPS:
-
+            date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
             ENVS.reset()
             if 'running_reward' not in globals():
-                running_reward = ep_rs_sum* 0.05
+                running_reward = ep_rs_sum
             else:
                 running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
             
@@ -426,8 +427,8 @@ while True:
             
             value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
             np.save("log/one_frame_no_stack_"+date,value_log)
-            saver.save(sess, 'saved_networks/'+date,global_step=count)
+            # saver.save(sess, 'saved_networks/'+date,global_step=count)
             
-            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum)
+            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date)
 
             break

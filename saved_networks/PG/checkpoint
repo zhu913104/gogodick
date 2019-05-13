@@ -1,0 +1,5 @@
+model_checkpoint_path: "PG2019_05_10_1711-100"
+all_model_checkpoint_paths: "PG2019_05_10_1708-100"
+all_model_checkpoint_paths: "PG2019_05_10_1709-100"
+all_model_checkpoint_paths: "PG2019_05_10_1710-100"
+all_model_checkpoint_paths: "PG2019_05_10_1711-100"
