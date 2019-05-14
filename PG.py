@@ -14,19 +14,27 @@ hwnd = grabscreen.FindWindow_bySearch("envs")
 
 log = np.array([0,0,0])
 
-np.random.seed(2)
-tf.set_random_seed(2)  # reproducible
+np.random.seed(22)
+tf.set_random_seed(22)  # reproducible
 
 
 
 OUTPUT_GRAPH = False
-MAX_EP_STEPS = 10   # maximum time step in one episode
+MAX_EP_STEPS = 50   # maximum time step in one episode
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 
 
 N_F = 80
 N_A = 3
+
+ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
+t = time.time()
+value_log = np.array([0,0])
+i_episode=0
+date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+LR_A = 0.0001    # learning rate for actor
+LR_C = 0.0001    # learning rate for critic
 
 # for i in range(4,0,-1):
 #     print(i)
@@ -203,11 +211,12 @@ class Actor(object):
 
         with tf.variable_scope('exp_v'):
             neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.acts_prob, labels=self.a)   # this is negative log of chosen action
+            # neg_log_prob = tf.reduce_sum(-tf.log(self.acts_prob)*tf.one_hot(self.a, n_actions), axis=1)
             # log_prob = tf.log(self.acts_prob[0, self.a])
             self.exp_v = tf.reduce_mean(neg_log_prob * self.reword)  # advantage (TD_error) guided loss
 
         with tf.variable_scope('train'):
-            self.train_op = tf.train.RMSPropOptimizer(lr).minimize(-self.exp_v)  # minimize(-exp_v) = maximize(exp_v)
+            self.train_op = tf.train.AdamOptimizer(lr).minimize(self.exp_v)
 
     def learn(self):
         nl_reword = self.normalization_reword()
@@ -221,7 +230,6 @@ class Actor(object):
         self.ep_ss = self.ep_ss[:,:,:,np.newaxis]
 
         feed_dict = {self.s: self.ep_ss, self.a: self.ep_as, self.reword: nl_reword}
-        print(feed_dict)
         _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)
         self.ep_ss,self.ep_as,self.ep_rs =[],[],[] 
         return exp_v
@@ -238,7 +246,6 @@ class Actor(object):
     def store_transition(self,s,a,r):
         if self.ep_ss == []:
             self.ep_ss=np.array([s])
-            print()
         else:
             self.ep_ss = np.concatenate([self.ep_ss,[s]])
         self.ep_as.append(a)
@@ -253,13 +260,7 @@ class Actor(object):
 
 
 
-ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
-t = time.time()
-value_log = np.array([0,0])
-i_episode=0
-date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
-LR_A = 0.00001    # learning rate for actor
-LR_C = 0.0001    # learning rate for critic
+
 
 sess = tf.Session()
 actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
@@ -269,9 +270,9 @@ sess.run(tf.global_variables_initializer())
 #讀取之前儲存的參數
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
-checkpoint = tf.train.get_checkpoint_state("saved_networks/PG")
+checkpoint = tf.train.get_checkpoint_state("saved_networks/PG/")
 if checkpoint and checkpoint.model_checkpoint_path:
-    # saver.restore(sess, checkpoint.model_checkpoint_path)
+    saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
 else:
     print("Could not find old network weights")
@@ -325,7 +326,6 @@ while True:
         if  count >= MAX_EP_STEPS:
             date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
-            print(actor.normalization_reword())
             ex_v = actor.learn()     # true_gradient = grad[logPi(s,a) * td_error]
             ENVS.reset()
             if 'running_reward' not in globals():
@@ -338,7 +338,7 @@ while True:
             
             value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
             np.save("log/PG"+date,value_log)
-            saver.save(sess, 'saved_networks/PG'+date_,global_step=count)
+            saver.save(sess, 'saved_networks/PG/'+date_,global_step=count)
             
             print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date)
 
