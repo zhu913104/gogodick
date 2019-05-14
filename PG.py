@@ -20,14 +20,10 @@ tf.set_random_seed(2)  # reproducible
 
 
 OUTPUT_GRAPH = False
-# DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
-MAX_EP_STEPS = 100   # maximum time step in one episode
+MAX_EP_STEPS = 10   # maximum time step in one episode
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 
-# env = gym.make('CartPole-v0')
-# env.seed(1)  # reproducible
-# env = env.unwrapped
 
 N_F = 80
 N_A = 3
@@ -129,8 +125,6 @@ class env(object):
             self.stack_m= np.array(self.stack_m,dtype = np.uint8)
             return self.stack_m
 
-
-
     def action(self,act):
         if act ==0:
             self.forword()
@@ -138,6 +132,8 @@ class env(object):
             self.left()
         elif act ==2:
             self.right() 
+
+
 
 
 
@@ -150,9 +146,10 @@ class Actor(object):
             self.nums=   nums                       
         self.sess = sess
 
-        self.s = tf.placeholder(tf.float32, [1, n_features,n_features,self.nums], "state")
+        self.s = tf.placeholder(tf.float32, [None, n_features,n_features,self.nums], "state")
         self.a = tf.placeholder(tf.int32, None, "act")
-        self.td_error = tf.placeholder(tf.float32, None, "td_error")  # TD_error
+        self.reword = tf.placeholder(tf.float32, None, "reword")  # TD_error
+        self.ep_ss,self.ep_as,self.ep_rs =[],[],[] 
 
         with tf.variable_scope('Actor'):
 
@@ -205,29 +202,28 @@ class Actor(object):
             )
 
         with tf.variable_scope('exp_v'):
+            neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.acts_prob, labels=self.a)   # this is negative log of chosen action
             # log_prob = tf.log(self.acts_prob[0, self.a])
-            # exp_v = log_prob * tf.stop_gradient(self.td_error)
-            # entropy = -tf.reduce_sum(self.acts_prob * tf.log(self.acts_prob + 1e-5),
-            #                                  axis=1, keep_dims=True)  # encourage exploration
-            
-            # print("self.a",self.a)
-            # print("self.acts_prob:",self.acts_prob)
-            # print("self.acts_prob[0, self.a]",self.acts_prob[0, self.a])
-            # self.exp_v =tf.reduce_mean(ENTROPY_BETA * entropy + exp_v)
-            
-            log_prob = tf.log(self.acts_prob[0, self.a])
-            self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss
+            self.exp_v = tf.reduce_mean(neg_log_prob * self.reword)  # advantage (TD_error) guided loss
 
         with tf.variable_scope('train'):
             self.train_op = tf.train.RMSPropOptimizer(lr).minimize(-self.exp_v)  # minimize(-exp_v) = maximize(exp_v)
 
-    def learn(self, s, a, td):
-        if self.nums==1:
-            s = s[np.newaxis, :,:,np.newaxis]
-        else :
-            s = s[np.newaxis, :]
-        feed_dict = {self.s: s, self.a: a, self.td_error: td}
+    def learn(self):
+        nl_reword = self.normalization_reword()
+        
+        
+
+        # if self.nums==1:
+        #     self.ep_ss = self.ep_ss[np.newaxis, :,:,np.newaxis]
+        # else :
+        #     self.ep_ss = self.ep_ss[np.newaxis, :]
+        self.ep_ss = self.ep_ss[:,:,:,np.newaxis]
+
+        feed_dict = {self.s: self.ep_ss, self.a: self.ep_as, self.reword: nl_reword}
+        print(feed_dict)
         _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)
+        self.ep_ss,self.ep_as,self.ep_rs =[],[],[] 
         return exp_v
 
     def choose_action(self, s):
@@ -238,110 +234,27 @@ class Actor(object):
         probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
         print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
         return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
+    
+    def store_transition(self,s,a,r):
+        if self.ep_ss == []:
+            self.ep_ss=np.array([s])
+            print()
+        else:
+            self.ep_ss = np.concatenate([self.ep_ss,[s]])
+        self.ep_as.append(a)
+        
+        self.ep_rs.append(r)
+
+    def normalization_reword(self):
+        nl_reword = np.array(self.ep_rs)
+        nl_reword[:] = np.mean(nl_reword)
+        return nl_reword
 
 
-# class Critic(object):
-#     def __init__(self, sess, n_features, lr=0.01,nums=1,frame_muti=False):
-#         self.sess = sess
-#         self.frame_muti = frame_muti
-#         if self.frame_muti !=True:
-#             self.nums = 1
-#         else:
-#             self.nums=   nums        
-
-#         self.s = tf.placeholder(tf.float32, [1, n_features,n_features,self.nums], "state")
-#         self.v_ = tf.placeholder(tf.float32, [1, 1], "v_next")
-#         self.r = tf.placeholder(tf.float32, None, 'r')
-
-#         with tf.variable_scope('Critic'):
-#             c1 = tf.layers.conv2d(
-#                 inputs = self.s,
-#                 filters = 16,
-#                 kernel_size = (8,8),
-#                 strides=(4,4),
-#                 activation=tf.nn.relu,
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='c1',
-#             )
-
-
- 
-
-
-#             c2 = tf.layers.conv2d(
-#                 inputs = c1,
-#                 filters = 32,
-#                 kernel_size = (4,4),
-#                 strides=(2,2),
-#                 activation=tf.nn.relu,
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='c2',
-#             )
-
-
-#             fl = tf.layers.flatten(
-#                 inputs = c2,
-#                 name= 'fl'
-#                 )
-
-
-#             l1 = tf.layers.dense(
-#                 inputs=fl,
-#                 units=256,  # number of hidden units
-#                 activation=tf.nn.relu,  # None
-#                 # have to be linear to make sure the convergence of actor.
-#                 # But linear approximator seems hardly learns the correct Q.
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='l1'
-#             )
-
-#             self.v = tf.layers.dense(
-#                 inputs=l1,
-#                 units=1,  # output units
-#                 activation=None,
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='V'
-#             )
-
-#         with tf.variable_scope('squared_TD_error'):
-#             self.td_error = self.r + GAMMA * self.v_ - self.v
-#             self.loss = tf.square(self.td_error)    # TD_error = (r+gamma*V_next) - V_eval
-#         with tf.variable_scope('train'):
-#             self.train_op = tf.train.RMSPropOptimizer(lr).minimize(self.loss)
-
-#     def learn(self, s, r, s_):
-#         if self.nums==1:
-#             s, s_ = s[np.newaxis, :,:,np.newaxis], s_[np.newaxis, :,:,np.newaxis]
-#         else:
-#             s, s_ = s[np.newaxis, :], s_[np.newaxis, :]
-#         v_ = self.sess.run(self.v, {self.s: s_})
-#         td_error, _ = self.sess.run([self.td_error, self.train_op],
-#                                           {self.s: s, self.v_: v_, self.r: r})
-#         return td_error
-
-
-
-
-
-# sess = tf.Session()
 
 
 ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
-
-# actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
-# critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
-# sess.run(tf.global_variables_initializer())
-
-
-
 t = time.time()
-
-
-
 value_log = np.array([0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
@@ -350,16 +263,15 @@ LR_C = 0.0001    # learning rate for critic
 
 sess = tf.Session()
 actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
-# critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
 sess.run(tf.global_variables_initializer())
 
 
-
+#讀取之前儲存的參數
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
 checkpoint = tf.train.get_checkpoint_state("saved_networks/PG")
 if checkpoint and checkpoint.model_checkpoint_path:
-    saver.restore(sess, checkpoint.model_checkpoint_path)
+    # saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
 else:
     print("Could not find old network weights")
@@ -396,9 +308,8 @@ while True:
 
 
         track_r.append(r)
-        # td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-        ex_v = actor.learn(s, a, r)     # true_gradient = grad[logPi(s,a) * td_error]
-        # print('td_error:',td_error[0][0],"REWORD:",r)
+        actor.store_transition(s,a,r)
+        
         s = s_
         count += 1
 
@@ -414,6 +325,8 @@ while True:
         if  count >= MAX_EP_STEPS:
             date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
+            print(actor.normalization_reword())
+            ex_v = actor.learn()     # true_gradient = grad[logPi(s,a) * td_error]
             ENVS.reset()
             if 'running_reward' not in globals():
                 running_reward = ep_rs_sum
