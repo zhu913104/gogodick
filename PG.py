@@ -28,12 +28,12 @@ GAMMA = 0.9     # reward discount in TD error
 N_F = 80
 N_A = 3
 
-ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
+
 t = time.time()
 value_log = np.array([0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
-LR_A = 0.0001    # learning rate for actor
+LR_A = 0.000005    # learning rate for actor
 LR_C = 0.0001    # learning rate for critic
 
 # for i in range(4,0,-1):
@@ -142,7 +142,7 @@ class env(object):
             self.right() 
 
 
-
+ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 
 
 class Actor(object):
@@ -166,7 +166,7 @@ class Actor(object):
                 filters = 16,
                 kernel_size = (8,8),
                 strides=(4,4),
-                activation=tf.nn.relu,
+                activation=tf.nn.sigmoid,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c1',
@@ -179,7 +179,7 @@ class Actor(object):
                 filters = 32,
                 kernel_size = (4,4),
                 strides=(2,2),
-                activation=tf.nn.relu,
+                activation=tf.nn.sigmoid,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c2',
@@ -194,7 +194,7 @@ class Actor(object):
             l1 = tf.layers.dense(
                 inputs=fl,
                 units=256,    # number of hidden units
-                activation=tf.nn.relu,
+                activation=tf.nn.sigmoid,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='l1'
@@ -210,8 +210,8 @@ class Actor(object):
             )
 
         with tf.variable_scope('exp_v'):
-            neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.acts_prob, labels=self.a)   # this is negative log of chosen action
-            # neg_log_prob = tf.reduce_sum(-tf.log(self.acts_prob)*tf.one_hot(self.a, n_actions), axis=1)
+            # neg_log_prob = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.acts_prob, labels=self.a)   # this is negative log of chosen action
+            neg_log_prob = tf.reduce_sum(-tf.log(self.acts_prob)*tf.one_hot(self.a, n_actions), axis=1)
             # log_prob = tf.log(self.acts_prob[0, self.a])
             self.exp_v = tf.reduce_mean(neg_log_prob * self.reword)  # advantage (TD_error) guided loss
 
@@ -336,10 +336,10 @@ while True:
             # if running_reward > DISPLAY_REWARD_THRESHOLD: 
             #     RENDER = True  # rendering
             
-            value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
-            np.save("log/PG"+date,value_log)
+            value_log = np.vstack([value_log,np.array([i_episode,ep_rs_sum])])
+            np.save("log/PG/"+date,value_log)
             saver.save(sess, 'saved_networks/PG/'+date_,global_step=count)
             
-            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date)
+            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
 
             break

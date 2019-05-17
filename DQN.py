@@ -33,17 +33,9 @@ GAMMA = 0.9     # reward discount in TD error
 N_F = 80
 N_A = 3
 
-epcilon = 0.9
-
 # for i in range(4,0,-1):
 #     print(i)
 #     time.sleep(1)
-
-value_log = np.array([0,0])
-i_episode=0
-date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
-LR_A = 0.00001    # learning rate for actor
-LR_C = 0.0001    # learning rate for critic
 
 
 nums = 1
@@ -150,121 +142,56 @@ class env(object):
 
 
 
-# class Actor(object):
-#     def __init__(self, sess, n_features, n_actions, lr=0.001,nums=1,frame_muti=False):
-#         self.frame_muti = frame_muti
-#         if self.frame_muti !=True:
-#             self.nums = 1
-#         else:
-#             self.nums=   nums                       
-#         self.sess = sess
-
-#         self.s = tf.placeholder(tf.float32, [1, n_features,n_features,self.nums], "state")
-#         self.a = tf.placeholder(tf.int32, None, "act")
-#         self.td_error = tf.placeholder(tf.float32, None, "td_error")  # TD_error
-
-#         with tf.variable_scope('Actor'):
-
-#             c1= tf.layers.conv2d(
-#                 inputs = self.s,
-#                 filters = 16,
-#                 kernel_size = (8,8),
-#                 strides=(4,4),
-#                 activation=tf.nn.relu,
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='c1',
-#             )
-
-
-
-#             c2 = tf.layers.conv2d(
-#                 inputs = c1,
-#                 filters = 32,
-#                 kernel_size = (4,4),
-#                 strides=(2,2),
-#                 activation=tf.nn.relu,
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='c2',
-#             )
-
-
-#             fl = tf.layers.flatten(
-#                 inputs = c2,
-#                 name= 'fl'
-#                 )
-
-#             l1 = tf.layers.dense(
-#                 inputs=fl,
-#                 units=256,    # number of hidden units
-#                 activation=tf.nn.relu,
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='l1'
-#             )
-
-#             self.acts_prob = tf.layers.dense(
-#                 inputs=l1,
-#                 units=n_actions,    # output units
-#                 activation=tf.nn.softmax,   # get action probabilities
-#                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
-#                 bias_initializer=tf.constant_initializer(0.1),  # biases
-#                 name='acts_prob'
-#             )
-
-#         with tf.variable_scope('exp_v'):
-#             # log_prob = tf.log(self.acts_prob[0, self.a])
-#             # exp_v = log_prob * tf.stop_gradient(self.td_error)
-#             # entropy = -tf.reduce_sum(self.acts_prob * tf.log(self.acts_prob + 1e-5),
-#             #                                  axis=1, keep_dims=True)  # encourage exploration
-            
-#             # print("self.a",self.a)
-#             # print("self.acts_prob:",self.acts_prob)
-#             # print("self.acts_prob[0, self.a]",self.acts_prob[0, self.a])
-#             # self.exp_v =tf.reduce_mean(ENTROPY_BETA * entropy + exp_v)
-            
-#             log_prob = tf.log(self.acts_prob[0, self.a])
-#             self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss
-
-#         with tf.variable_scope('train'):
-#             self.train_op = tf.train.RMSPropOptimizer(lr).minimize(-self.exp_v)  # minimize(-exp_v) = maximize(exp_v)
-
-#     def learn(self, s, a, td):
-#         if self.nums==1:
-#             s = s[np.newaxis, :,:,np.newaxis]
-#         else :
-#             s = s[np.newaxis, :]
-#         feed_dict = {self.s: s, self.a: a, self.td_error: td}
-#         _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)
-#         return exp_v
-
-#     def choose_action(self, s):
-#         if self.nums==1:
-#             s = s[np.newaxis, :,:,np.newaxis]
-#         else :
-#             s = s[np.newaxis, :]
-#         probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
-#         print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
-#         return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
 
 
 class Critic(object):
-    def __init__(self, sess, n_features, lr=0.01,nums=1,frame_muti=False):
+    def __init__(self, 
+                sess, 
+                n_features, 
+                n_actions=3,
+                lr=0.01,
+                nums=1,
+                frame_muti=False,
+                memory_size=3000,
+                replace_target_iter=200,
+                batch_size=32,
+                ):
         self.sess = sess
         self.frame_muti = frame_muti
         if self.frame_muti !=True:
             self.nums = 1
         else:
-            self.nums=   nums        
-
-        self.s = tf.placeholder(tf.float32, [1, n_features,n_features,self.nums], "state")
-        self.v_ = tf.placeholder(tf.float32, [1, 3], "v_next")
+            self.nums=   nums
+        self.n_features = n_features*n_features
+        self.n_actions = n_actions
+        self.memory_size = memory_size
+        self.learn_step_counter = 0
+        self.memory = np.zeros((self.memory_size, (n_features**2)*2+2))
+        self.s = tf.placeholder(tf.float32, [None, n_features,n_features,self.nums], "state")
+        self.s_ = tf.placeholder(tf.float32, [None, n_features,n_features,self.nums], "state")
+        self.q_target = tf.placeholder(tf.float32, [None, self.n_actions], name='Q_target')  # for calculating loss
         self.r = tf.placeholder(tf.float32, None, 'r')
+        self.eval = self.build_layers(self.s ,'eval',True)
+        self.target = self.build_layers(self.s_ ,'target',False)
+        self.batch_size = batch_size
+        self.replace_target_iter = replace_target_iter
+        
+        
+        t_params = tf.get_collection('target')
+        e_params = tf.get_collection('eval')
+        self.replace_traning_op =  [tf.assign(t, e) for t, e in zip(t_params, e_params)]
 
-        with tf.variable_scope('Critic'):
+
+        with tf.variable_scope('squared_TD_error'):
+            self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.eval))
+        with tf.variable_scope('train'):
+            self.train_op = tf.train.RMSPropOptimizer(lr).minimize(self.loss)
+
+            
+    def build_layers(self,s, scope, trainable):
+        with tf.variable_scope(scope):
             c1 = tf.layers.conv2d(
-                inputs = self.s,
+                inputs = s,
                 filters = 16,
                 kernel_size = (8,8),
                 strides=(4,4),
@@ -272,12 +199,8 @@ class Critic(object):
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c1',
+                trainable=trainable
             )
-
-
- 
-
-
             c2 = tf.layers.conv2d(
                 inputs = c1,
                 filters = 32,
@@ -287,15 +210,13 @@ class Critic(object):
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c2',
+                trainable=trainable
             )
-
-
             fl = tf.layers.flatten(
                 inputs = c2,
                 name= 'fl'
+                
                 )
-
-
             l1 = tf.layers.dense(
                 inputs=fl,
                 units=256,  # number of hidden units
@@ -304,46 +225,81 @@ class Critic(object):
                 # But linear approximator seems hardly learns the correct Q.
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
-                name='l1'
+                name='l1',
+                trainable=trainable
             )
-
-            self.v = tf.layers.dense(
+            out = tf.layers.dense(
                 inputs=l1,
                 units=3,  # output units
                 activation=tf.nn.softmax,
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
-                name='V'
+                name='V',
+                trainable=trainable  
             )
+            return out
+        
+    def store_transition(self, s, a, r, s_):
+        if not hasattr(self, 'memory_counter'):
+            self.memory_counter = 0
+        s,s_=s.reshape(-1),s_.reshape(-1)
+        transition = np.hstack((s, [a, r], s_))  #shape=(12802,)
+        index = self.memory_counter % self.memory_size   
+        self.memory[index, :] = transition
+        self.memory_counter += 1
 
-        with tf.variable_scope('squared_TD_error'):
-            self.td_error = self.r + GAMMA * self.v_ - self.v
-            self.loss = tf.square(self.td_error)    # TD_error = (r+gamma*V_next) - V_eval
-        with tf.variable_scope('train'):
-            self.train_op = tf.train.RMSPropOptimizer(lr).minimize(self.loss)
-
-    def learn(self, s, r, s_):
-        if self.nums==1:
-            s, s_ = s[np.newaxis, :,:,np.newaxis], s_[np.newaxis, :,:,np.newaxis]
-        else:
-            s, s_ = s[np.newaxis, :], s_[np.newaxis, :]
-        v_ = self.sess.run(self.v, {self.s: s_})
-        td_error, _ = self.sess.run([self.td_error, self.train_op],
-                                          {self.s: s, self.v_: v_, self.r: r})
-        return td_error
-
+    
     def choose_action(self, s):
         if self.nums==1:
             s = s[np.newaxis, :,:,np.newaxis]
         else :
             s = s[np.newaxis, :]
-        probs = self.sess.run(self.v, {self.s: s})   # get probabilities for all actions
-        print((probs.ravel()),np.argmax(probs.ravel()),end='\r')
-        if epcilon>np.random.random():
+        probs = self.sess.run(self.eval, {self.s: s})   # get probabilities for all actions
+        print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
+        if np.random.uniform() >0.9:
+            return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
+        else:
             return np.argmax(probs.ravel())
-        else :
-            return np.random.choice(np.arange(probs.shape[1]))   # return a int
+
+
+    def learn(self):
+        if self.learn_step_counter % self.replace_target_iter == 0:
+            self.sess.run(self.replace_traning_op)
+            print('\ntarget_params_replaced\n')
         
+        if self.memory_counter > self.memory_size:
+            sample_index = np.random.choice(self.memory_size, size=self.batch_size)
+        else:
+            sample_index = np.random.choice(self.memory_counter, size=self.batch_size)
+
+        batch_memory = self.memory[sample_index, :]
+        next_observation = batch_memory[:, -self.n_features:].reshape(batch_memory.shape[0],int(self.n_features**0.5),int(self.n_features**0.5),1)  #把1D變4D
+        now_observation= batch_memory[:, :self.n_features].reshape(batch_memory.shape[0],int(self.n_features**0.5),int(self.n_features**0.5),1)  #把1D變4D
+        q_next, q_eval4next = self.sess.run(
+            [self.target, self.eval],
+            feed_dict={self.s_: next_observation,    # next observation
+                       self.s: next_observation})    # next observation
+
+        q_eval = self.sess.run(self.eval, {self.s: now_observation})
+        q_target = q_eval.copy()
+
+        batch_index = np.arange(self.batch_size, dtype=np.int32)
+        eval_act_index = batch_memory[:, self.n_features].astype(int)
+        reward = batch_memory[:, self.n_features + 1]
+
+        max_act4next = np.argmax(q_eval4next, axis=1)        # the action that brings the highest value is evaluated by q_eval
+        selected_q_next = q_next[batch_index, max_act4next]  # Double DQN, select q_next depending on above actions
+
+        q_target[batch_index, eval_act_index] = reward + GAMMA * selected_q_next
+
+        # batch_memory[:, :self.n_features] = batch_memory[:, :self.n_features].reshape(32,80,80,1)
+
+        _, self.cost = self.sess.run([self.train_op, self.loss],
+                                     feed_dict={self.s: batch_memory[:, :self.n_features].reshape(32,80,80,1),
+                                                self.q_target: q_target})
+        self.learn_step_counter = self.learn_step_counter+1
+        return self.cost
+
 
 
 
@@ -358,8 +314,18 @@ ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 # sess.run(tf.global_variables_initializer())
 
 
+
+t = time.time()
+
+
+
+value_log = np.array([0,0])
+i_episode=0
+date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+LR_A = 0.00001    # learning rate for actor
+LR_C = 0.0001    # learning rate for critic
+
 sess = tf.Session()
-# actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A,nums=nums,frame_muti=frame_muti)
 critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
 sess.run(tf.global_variables_initializer())
 
@@ -367,10 +333,11 @@ sess.run(tf.global_variables_initializer())
 
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
-checkpoint = tf.train.get_checkpoint_state("saved_networks/DQN_one")
+checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn")
 if checkpoint and checkpoint.model_checkpoint_path:
     saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
+    pass
 else:
     print("Could not find old network weights")
 
@@ -388,10 +355,11 @@ while True:
     i_episode+=1
     while True:
         
-        a = critic.choose_action(s)
-
+        a=critic.choose_action(s)
         ENVS.action(a)
         s_, r = ENVS.get_state() ,ENVS.get_reword()
+
+        critic.store_transition(s,a,r,s_)
         s_=s_/255
 
 
@@ -406,24 +374,23 @@ while True:
 
 
         track_r.append(r)
-        td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-        print(td_error)
-        # ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
-        # # print('td_error:',td_error[0][0],"REWORD:",r)
+        td_error = critic.learn()  # gradient = grad[r + gamma * V(s_) - V(s)]
+        
+        # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
         count += 1
 
-        if RENDER:
-            cv2.imshow("s1", s)
-            k = cv2.waitKey(30)&0xFF #64bits! need a mask
-            if k ==27:
-                cv2.destroyAllWindows()
-                break
+        # if RENDER:
+        #     cv2.imshow("s1", s)
+        #     k = cv2.waitKey(30)&0xFF #64bits! need a mask
+        #     if k ==27:
+        #         cv2.destroyAllWindows()
+        #         break
 
 
 
         if  count >= MAX_EP_STEPS:
-            date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+            date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
             ENVS.reset()
             if 'running_reward' not in globals():
@@ -435,9 +402,9 @@ while True:
             #     RENDER = True  # rendering
             
             value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
-            np.save("log/dqn_one_frame_no_stack_"+date,value_log)
-            saver.save(sess, 'saved_networks/DQN_one'+date_,global_step=count)
+            np.save("log/dqn/"+date,value_log)
+            saver.save(sess, 'saved_networks/dqn'+date,global_step=count)
             
-            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",int(ep_rs_sum),"---",date)
+            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date)
 
             break
