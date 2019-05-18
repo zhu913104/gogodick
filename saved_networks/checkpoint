@@ -1,0 +1,6 @@
+model_checkpoint_path: "dqn2019_05_18_0209-100"
+all_model_checkpoint_paths: "dqn2019_05_18_0205-100"
+all_model_checkpoint_paths: "dqn2019_05_18_0206-100"
+all_model_checkpoint_paths: "dqn2019_05_18_0207-100"
+all_model_checkpoint_paths: "dqn2019_05_18_0208-100"
+all_model_checkpoint_paths: "dqn2019_05_18_0209-100"

@@ -12,7 +12,7 @@ import datetime
 
 hwnd = grabscreen.FindWindow_bySearch("envs")
 
-log = np.array([0,0,0])
+
 
 np.random.seed(2)
 tf.set_random_seed(2)  # reproducible
@@ -21,7 +21,7 @@ tf.set_random_seed(2)  # reproducible
 
 OUTPUT_GRAPH = False
 # DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
-MAX_EP_STEPS = 100   # maximum time step in one episode
+MAX_EP_STEPS = 10   # maximum time step in one episode
 MAX_TIME = 86400 #a day 
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
@@ -206,7 +206,7 @@ class Critic(object):
                 filters = 32,
                 kernel_size = (4,4),
                 strides=(2,2),
-                activation=tf.nn.relu,
+                activation=tf.nn.sigmoid,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c2',
@@ -220,7 +220,7 @@ class Critic(object):
             l1 = tf.layers.dense(
                 inputs=fl,
                 units=256,  # number of hidden units
-                activation=tf.nn.relu,  # None
+                activation=tf.nn.sigmoid,  # None
                 # have to be linear to make sure the convergence of actor.
                 # But linear approximator seems hardly learns the correct Q.
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
@@ -231,7 +231,7 @@ class Critic(object):
             out = tf.layers.dense(
                 inputs=l1,
                 units=3,  # output units
-                activation=tf.nn.softmax,
+                activation=None,
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='V',
@@ -257,15 +257,17 @@ class Critic(object):
         probs = self.sess.run(self.eval, {self.s: s})   # get probabilities for all actions
         print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
         if np.random.uniform() >0.9:
-            return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
+            chooseact =  np.random.choice(np.arange(probs.shape[1]))   # return a int
         else:
-            return np.argmax(probs.ravel())
+            chooseact =  np.argmax(probs.ravel())
+        print(probs.ravel(),chooseact,end='\r')
+        return chooseact
 
 
     def learn(self):
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.sess.run(self.replace_traning_op)
-            print('\ntarget_params_replaced\n')
+            print('target_params_replaced\n')
         
         if self.memory_counter > self.memory_size:
             sample_index = np.random.choice(self.memory_size, size=self.batch_size)
@@ -319,11 +321,12 @@ t = time.time()
 
 
 
-value_log = np.array([0,0])
+reword_log = np.array([0,0])
+loss_log = np.array([0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 LR_A = 0.00001    # learning rate for actor
-LR_C = 0.0001    # learning rate for critic
+LR_C = 0.005    # learning rate for critic
 
 sess = tf.Session()
 critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
@@ -333,7 +336,7 @@ sess.run(tf.global_variables_initializer())
 
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
-checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn")
+checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn/")
 if checkpoint and checkpoint.model_checkpoint_path:
     saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
@@ -342,14 +345,12 @@ else:
     print("Could not find old network weights")
 
 
-
+count_1=0
 while True:
     s =  ENVS.get_state()
     s=s/255
-    count=0
+    count_2=0
     track_r = []
-
-    
     time.sleep(0.5)
     ENVS.action(0)
     i_episode+=1
@@ -364,7 +365,7 @@ while True:
 
 
         if r==-1: 
-            r = -5
+            r = -1
 
         elif r ==0:
             r=0.8
@@ -375,24 +376,32 @@ while True:
 
         track_r.append(r)
         td_error = critic.learn()  # gradient = grad[r + gamma * V(s_) - V(s)]
-        
+
+        loss_log = np.vstack([loss_log,np.array([i_episode,td_error])])
+        np.save("log/dqn/loss/loss"+date,loss_log)
         # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
-        count += 1
-
+        count_1 += 1
+        count_2 += 1 
         # if RENDER:
         #     cv2.imshow("s1", s)
         #     k = cv2.waitKey(30)&0xFF #64bits! need a mask
         #     if k ==27:
         #         cv2.destroyAllWindows()
         #         break
-
-
-
-        if  count >= MAX_EP_STEPS:
-            date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
-            ep_rs_sum = sum(track_r)
+        if  count_1 >= MAX_EP_STEPS:
+            count_1 = 0
             ENVS.reset()
+
+        if  i_episode % 10==0:
+            MAX_EP_STEPS +=1
+
+
+
+        if  count_2 >= 100:
+            date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+            ep_rs_sum = sum(track_r)
+            
             if 'running_reward' not in globals():
                 running_reward = ep_rs_sum
             else:
@@ -401,10 +410,10 @@ while True:
             # if running_reward > DISPLAY_REWARD_THRESHOLD: 
             #     RENDER = True  # rendering
             
-            value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
-            np.save("log/dqn/"+date,value_log)
-            saver.save(sess, 'saved_networks/dqn'+date,global_step=count)
+            reword_log = np.vstack([reword_log,np.array([i_episode,ep_rs_sum])])
+            np.save("log/dqn/reword/reword"+date,reword_log)
+            saver.save(sess, 'saved_networks/dqn/'+date,global_step=i_episode)
             
-            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date)
+            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
 
             break
