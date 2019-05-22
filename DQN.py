@@ -21,7 +21,7 @@ tf.set_random_seed(2)  # reproducible
 
 OUTPUT_GRAPH = False
 # DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
-MAX_EP_STEPS = 10   # maximum time step in one episode
+MAX_EP_STEPS = 100   # maximum time step in one episode
 MAX_TIME = 86400 #a day 
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
@@ -31,7 +31,7 @@ GAMMA = 0.9     # reward discount in TD error
 # env = env.unwrapped
 
 N_F = 80
-N_A = 3
+N_A = 5
 
 # for i in range(4,0,-1):
 #     print(i)
@@ -60,24 +60,41 @@ class env(object):
     def forword(self):
         pyautogui.keyUp('d')
         pyautogui.keyUp('a')
+        pyautogui.keyUp('s')
         pyautogui.keyDown('w')
 
-    def left(self):
+    def left_forword(self):
         pyautogui.keyUp('d')
+        pyautogui.keyUp('s')
         pyautogui.keyDown('a')
         pyautogui.keyDown('w')
 
-    def right(self):
+    def right_forword(self):
         pyautogui.keyUp('a')
+        pyautogui.keyUp('s')
         pyautogui.keyDown('d')
         pyautogui.keyDown('w')
     
     def reset(self):
         pyautogui.keyDown('r')
+        pyautogui.keyUp('s')
         pyautogui.keyUp('d')
         pyautogui.keyUp('a')
         pyautogui.keyUp('w')
         pyautogui.keyUp('r')
+    
+    def left(self):
+        pyautogui.keyUp('w')
+        pyautogui.keyUp('d')
+        pyautogui.keyDown('a')
+        pyautogui.keyDown('s')
+        
+
+    def right(self):
+        pyautogui.keyUp('w')
+        pyautogui.keyUp('a')
+        pyautogui.keyDown('d')
+        pyautogui.keyDown('s')
         
         
     
@@ -136,9 +153,13 @@ class env(object):
         if act ==0:
             self.forword()
         elif act ==1:
-            self.left()
+            self.left_forword()
         elif act ==2:
-            self.right() 
+            self.right_forword() 
+        elif act==3:
+            self.left()
+        elif act==4:
+            self.right()
 
 
 
@@ -148,7 +169,7 @@ class Critic(object):
     def __init__(self, 
                 sess, 
                 n_features, 
-                n_actions=3,
+                n_actions=5,
                 lr=0.01,
                 nums=1,
                 frame_muti=False,
@@ -206,7 +227,7 @@ class Critic(object):
                 filters = 32,
                 kernel_size = (4,4),
                 strides=(2,2),
-                activation=tf.nn.sigmoid,
+                activation=tf.nn.relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='c2',
@@ -220,7 +241,7 @@ class Critic(object):
             l1 = tf.layers.dense(
                 inputs=fl,
                 units=256,  # number of hidden units
-                activation=tf.nn.sigmoid,  # None
+                activation=tf.nn.relu,  # None
                 # have to be linear to make sure the convergence of actor.
                 # But linear approximator seems hardly learns the correct Q.
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
@@ -230,7 +251,7 @@ class Critic(object):
             )
             out = tf.layers.dense(
                 inputs=l1,
-                units=3,  # output units
+                units=5,  # output units
                 activation=None,
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
@@ -255,26 +276,27 @@ class Critic(object):
         else :
             s = s[np.newaxis, :]
         probs = self.sess.run(self.eval, {self.s: s})   # get probabilities for all actions
-        print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
+        # print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
         if np.random.uniform() >0.9:
             chooseact =  np.random.choice(np.arange(probs.shape[1]))   # return a int
         else:
             chooseact =  np.argmax(probs.ravel())
-        print(probs.ravel(),chooseact,end='\r')
+        # print((probs.ravel()),chooseact,end='\r')
+        # print("action",chooseact,,end='\r')
         return chooseact
 
 
     def learn(self):
         if self.learn_step_counter % self.replace_target_iter == 0:
             self.sess.run(self.replace_traning_op)
-            print('target_params_replaced\n')
+            # print('\ntarget_params_replaced')
         
         if self.memory_counter > self.memory_size:
             sample_index = np.random.choice(self.memory_size, size=self.batch_size)
         else:
             sample_index = np.random.choice(self.memory_counter, size=self.batch_size)
 
-        batch_memory = self.memory[sample_index, :]
+        batch_memory = self.memory[sample_index, :] 
         next_observation = batch_memory[:, -self.n_features:].reshape(batch_memory.shape[0],int(self.n_features**0.5),int(self.n_features**0.5),1)  #把1D變4D
         now_observation= batch_memory[:, :self.n_features].reshape(batch_memory.shape[0],int(self.n_features**0.5),int(self.n_features**0.5),1)  #把1D變4D
         q_next, q_eval4next = self.sess.run(
@@ -288,16 +310,18 @@ class Critic(object):
         batch_index = np.arange(self.batch_size, dtype=np.int32)
         eval_act_index = batch_memory[:, self.n_features].astype(int)
         reward = batch_memory[:, self.n_features + 1]
+        
 
         max_act4next = np.argmax(q_eval4next, axis=1)        # the action that brings the highest value is evaluated by q_eval
         selected_q_next = q_next[batch_index, max_act4next]  # Double DQN, select q_next depending on above actions
+        selected_q_next = np.max(q_next, axis=1)    # the natural DQN
 
         q_target[batch_index, eval_act_index] = reward + GAMMA * selected_q_next
 
-        # batch_memory[:, :self.n_features] = batch_memory[:, :self.n_features].reshape(32,80,80,1)
-
+        # print("----------------------------")
+        # print(q_eval[0],q_next[0],q_target[0])
         _, self.cost = self.sess.run([self.train_op, self.loss],
-                                     feed_dict={self.s: batch_memory[:, :self.n_features].reshape(32,80,80,1),
+                                     feed_dict={self.s:now_observation,
                                                 self.q_target: q_target})
         self.learn_step_counter = self.learn_step_counter+1
         return self.cost
@@ -326,10 +350,10 @@ loss_log = np.array([0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 LR_A = 0.00001    # learning rate for actor
-LR_C = 0.005    # learning rate for critic
+LR_C = 0.0001    # learning rate for critic
 
 sess = tf.Session()
-critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should learn faster than the actor
+critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should dwdwdwdwdww faster than the actor
 sess.run(tf.global_variables_initializer())
 
 
@@ -340,65 +364,73 @@ checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn/")
 if checkpoint and checkpoint.model_checkpoint_path:
     saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
-    pass
 else:
     print("Could not find old network weights")
 
 
-count_1=0
+
 while True:
     s =  ENVS.get_state()
     s=s/255
-    count_2=0
     track_r = []
     time.sleep(0.5)
     ENVS.action(0)
-    i_episode+=1
+    
     while True:
-        
+        i_episode+=1
         a=critic.choose_action(s)
         ENVS.action(a)
         s_, r = ENVS.get_state() ,ENVS.get_reword()
 
-        critic.store_transition(s,a,r,s_)
+        
         s_=s_/255
 
 
         if r==-1: 
-            r = -1
-
+            if a==3 or a==4:
+                r = 0
+            else:
+                r = -1
         elif r ==0:
-            r=0.8
-
+            if a==3 or a==4:
+                r=0
+            else:
+                r=0.8
         elif r ==1:
-            r=1
+            if a==3 or a==4:
+                r=0
+            else:
+                r=1
 
+
+
+        print("action:{}  reword:{:+.2f}".format(a,r),end='\r')
+        critic.store_transition(s,a,r,s_)
+        # print("--------------------------------------")
+        # print(a,r)
 
         track_r.append(r)
         td_error = critic.learn()  # gradient = grad[r + gamma * V(s_) - V(s)]
-
         loss_log = np.vstack([loss_log,np.array([i_episode,td_error])])
         np.save("log/dqn/loss/loss"+date,loss_log)
         # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
-        count_1 += 1
-        count_2 += 1 
+
+        
         # if RENDER:
         #     cv2.imshow("s1", s)
         #     k = cv2.waitKey(30)&0xFF #64bits! need a mask
         #     if k ==27:
         #         cv2.destroyAllWindows()
         #         break
-        if  count_1 >= MAX_EP_STEPS:
-            count_1 = 0
+
+
+            
+            
+
+
+        if  i_episode % MAX_EP_STEPS ==0:
             ENVS.reset()
-
-        if  i_episode % 10==0:
-            MAX_EP_STEPS +=1
-
-
-
-        if  count_2 >= 100:
             date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
             

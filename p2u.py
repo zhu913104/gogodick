@@ -22,7 +22,7 @@ tf.set_random_seed(2)  # reproducible
 OUTPUT_GRAPH = False
 # DISPLAY_REWARD_THRESHOLD = 1000  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 100   # maximum time step in one episode
-MAX_TIME = 86400 #a day 
+
 RENDER = True  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 
@@ -31,7 +31,7 @@ GAMMA = 0.9     # reward discount in TD error
 # env = env.unwrapped
 
 N_F = 80
-N_A = 3
+N_A = 5
 
 # for i in range(4,0,-1):
 #     print(i)
@@ -60,24 +60,41 @@ class env(object):
     def forword(self):
         pyautogui.keyUp('d')
         pyautogui.keyUp('a')
+        pyautogui.keyUp('s')
         pyautogui.keyDown('w')
 
-    def left(self):
+    def left_forword(self):
         pyautogui.keyUp('d')
+        pyautogui.keyUp('s')
         pyautogui.keyDown('a')
         pyautogui.keyDown('w')
 
-    def right(self):
+    def right_forword(self):
         pyautogui.keyUp('a')
+        pyautogui.keyUp('s')
         pyautogui.keyDown('d')
         pyautogui.keyDown('w')
     
     def reset(self):
         pyautogui.keyDown('r')
+        pyautogui.keyUp('s')
         pyautogui.keyUp('d')
         pyautogui.keyUp('a')
         pyautogui.keyUp('w')
         pyautogui.keyUp('r')
+    
+    def left(self):
+        pyautogui.keyUp('w')
+        pyautogui.keyUp('d')
+        pyautogui.keyDown('a')
+        pyautogui.keyDown('s')
+        
+
+    def right(self):
+        pyautogui.keyUp('w')
+        pyautogui.keyUp('a')
+        pyautogui.keyDown('d')
+        pyautogui.keyDown('s')
         
         
     
@@ -132,13 +149,18 @@ class env(object):
 
 
 
+
     def action(self,act):
         if act ==0:
             self.forword()
         elif act ==1:
-            self.left()
+            self.left_forword()
         elif act ==2:
-            self.right() 
+            self.right_forword() 
+        elif act==3:
+            self.left()
+        elif act==4:
+            self.right()
 
 
 
@@ -237,7 +259,7 @@ class Actor(object):
         else :
             s = s[np.newaxis, :]
         probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
-        print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
+        # print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
         return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
 
 
@@ -338,12 +360,8 @@ ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 # sess.run(tf.global_variables_initializer())
 
 
-
-t = time.time()
-
-
-
 value_log = np.array([0,0])
+loss_log = np.array([0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 LR_A = 0.00001    # learning rate for actor
@@ -358,11 +376,10 @@ sess.run(tf.global_variables_initializer())
 
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
-checkpoint = tf.train.get_checkpoint_state("saved_networks")
+checkpoint = tf.train.get_checkpoint_state("saved_networks/A2C/")
 if checkpoint and checkpoint.model_checkpoint_path:
-    # saver.restore(sess, checkpoint.model_checkpoint_path)
-    # print("Successfully loaded:", checkpoint.model_checkpoint_path)
-    pass
+    saver.restore(sess, checkpoint.model_checkpoint_path)
+    print("Successfully loaded:", checkpoint.model_checkpoint_path)
 else:
     print("Could not find old network weights")
 
@@ -371,15 +388,12 @@ else:
 while True:
     s =  ENVS.get_state()
     s=s/255
-    count=0
     track_r = []
-
-    
     time.sleep(0.5)
     ENVS.action(0)
-    i_episode+=1
+    
     while True:
-        
+        i_episode+=1
         a = actor.choose_action(s)
 
         ENVS.action(a)
@@ -388,33 +402,41 @@ while True:
 
 
         if r==-1: 
-            r = -5
-
+            if a==3 or a==4:
+                r = 0
+            else:
+                r = -1
         elif r ==0:
-            r=0.8
-
+            if a==3 or a==4:
+                r=0
+            else:
+                r=0.8
         elif r ==1:
-            r=1
+            if a==3 or a==4:
+                r=0
+            else:
+                r=1
 
-
+        print("action:{}  reword:{:+.2f}".format(a,r),end='\r')
         track_r.append(r)
         td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
         ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
+        loss_log = np.vstack([loss_log,np.array([i_episode,td_error])])
+        np.save("log/A2C/loss/"+date,loss_log)
         # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
-        count += 1
 
-        if RENDER:
-            cv2.imshow("s1", s)
-            k = cv2.waitKey(30)&0xFF #64bits! need a mask
-            if k ==27:
-                cv2.destroyAllWindows()
-                break
-
+        # if RENDER:
+        #     cv2.imshow("s1", s)
+        #     k = cv2.waitKey(30)&0xFF #64bits! need a mask
+        #     if k ==27:
+        #         cv2.destroyAllWindows()
+        #         break
 
 
-        if  count >= MAX_EP_STEPS:
-            date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
+
+        if  i_episode % MAX_EP_STEPS ==0:
+            date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
             ENVS.reset()
             if 'running_reward' not in globals():
@@ -425,10 +447,10 @@ while True:
             # if running_reward > DISPLAY_REWARD_THRESHOLD: 
             #     RENDER = True  # rendering
             
-            value_log = np.vstack([value_log,np.array([i_episode,running_reward])])
-            np.save("log/one_frame_no_stack_"+date,value_log)
-            # saver.save(sess, 'saved_networks/'+date,global_step=count)
+            value_log = np.vstack([value_log,np.array([i_episode,ep_rs_sum])])
+            np.save("log/A2C/reword/"+date,value_log)
+            saver.save(sess, 'saved_networks/A2C/'+date,global_step=i_episode)
             
-            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date)
+            print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
 
             break
