@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 # mode5 = np.load("log/dqn/loss/loss2019_05_19_0017.npy")
-mode6 = np.load("log/dqn/reword/reword2019_05_20_2108.npy")
+mode6 = np.load("log/dqn10e-4/action/2019_05_23_1131.npy")
 # mode4 = np.load("log/mode_4_2019_03_29_1202.npy")
 # mode1 = np.load("log/mode1/one_frame_no_stack_2019_03_22_1548.npy")
 # mode2 = np.load("log/mode2/one_frame_no_stack_2019_03_27_1910.npy")
@@ -32,23 +32,23 @@ mode6 = np.load("log/dqn/reword/reword2019_05_20_2108.npy")
 # print("mode8 max:",mode8[500:1000,1].max(),"mode8 mean:",mode8[500:1000,1].mean(),"mean error: ",mode8[500:1000,1].std())
 # print("mode9 max:",mode9[500:1000,1].max(),"mode9 mean:",mode9[500:1000,1].mean(),"mean error: ",mode9[500:1000,1].std())
 
-
+print(mode6)
 
 # plt.plot(mode1[1:1000,0],mode1[1:1000,1],"#FF4D00",label = "mode1")
 # plt.plot(mode2[1:1000,0],mode2[1:1000,1],"#FFA500",label = "mode2")
 # plt.plot(mode3[1:1000,0],mode3[1:1000,1],"#CC5500",label = "mode3")
 # plt.plot(mode4[1:1000,0],mode4[1:1000,1],"#008080",label = "mode4")
 # plt.plot(mode5[1:,0],mode5[1:,1],label = "mode5")
-plt.plot(mode6[1:,0],mode6[1:,1], label = "mode6")
-# plt.plot(mode7[1:1000,0],mode7[1:1000,1],"#5E86C1",label = "mode7")
-# plt.plot(mode8[1:1000,0],mode8[1:1000,1],"#30D5C8",label = "mode8")
-# plt.plot(mode9[1:1000,0],mode9[1:1000,1],"b",label = "mode9")
+# plt.plot(mode6[1:,0],np.sqrt(np.square(mode6[1:,1])))
+# # plt.plot(mode7[1:1000,0],mode7[1:1000,1],"#5E86C1",label = "mode7")
+# # plt.plot(mode8[1:1000,0],mode8[1:1000,1],"#30D5C8",label = "mode8")
+# # plt.plot(mode9[1:1000,0],mode9[1:1000,1],"b",label = "mode9")
 
 
 
-plt.xlabel("step")
-plt.ylabel("reword")
-plt.legend(loc="lower right",prop={'size': 20})
+# plt.xlabel("step")
+# plt.ylabel("reword")
+# plt.legend(loc="lower right",prop={'size': 20})
 
 
-plt.show()
+# plt.show()

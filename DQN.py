@@ -347,20 +347,21 @@ t = time.time()
 
 reword_log = np.array([0,0])
 loss_log = np.array([0,0])
+act_log = np.array([0,0,0,0,0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 LR_A = 0.00001    # learning rate for actor
 LR_C = 0.0001    # learning rate for critic
 
 sess = tf.Session()
-critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should dwdwdwdwdww faster than the actor
+critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should  faster than the actor
 sess.run(tf.global_variables_initializer())
 
 
 
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
-checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn/")
+checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn10e-4/")
 if checkpoint and checkpoint.model_checkpoint_path:
     saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
@@ -375,7 +376,7 @@ while True:
     track_r = []
     time.sleep(0.5)
     ENVS.action(0)
-    
+    act_log_ = np.array([0,0,0,0,0,0])
     while True:
         i_episode+=1
         a=critic.choose_action(s)
@@ -388,14 +389,14 @@ while True:
 
         if r==-1: 
             if a==3 or a==4:
-                r = 0
+                r = 0.1
             else:
                 r = -1
         elif r ==0:
             if a==3 or a==4:
                 r=0
             else:
-                r=0.8
+                r=0.5
         elif r ==1:
             if a==3 or a==4:
                 r=0
@@ -408,26 +409,24 @@ while True:
         critic.store_transition(s,a,r,s_)
         # print("--------------------------------------")
         # print(a,r)
+        if a==0:
+            act_log_[1] +=1 
+        elif a==1:
+            act_log_[2] +=1 
+        elif a==2:
+            act_log_[3] +=1
+        elif a==3:
+            act_log_[4] +=1
+        elif a==4:
+            act_log_[5] +=1
+
 
         track_r.append(r)
         td_error = critic.learn()  # gradient = grad[r + gamma * V(s_) - V(s)]
         loss_log = np.vstack([loss_log,np.array([i_episode,td_error])])
-        np.save("log/dqn/loss/loss"+date,loss_log)
+        np.save("log/dqn10e-4/loss/"+date,loss_log)
         # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
-
-        
-        # if RENDER:
-        #     cv2.imshow("s1", s)
-        #     k = cv2.waitKey(30)&0xFF #64bits! need a mask
-        #     if k ==27:
-        #         cv2.destroyAllWindows()
-        #         break
-
-
-            
-            
-
 
         if  i_episode % MAX_EP_STEPS ==0:
             ENVS.reset()
@@ -443,9 +442,11 @@ while True:
             #     RENDER = True  # rendering
             
             reword_log = np.vstack([reword_log,np.array([i_episode,ep_rs_sum])])
-            np.save("log/dqn/reword/reword"+date,reword_log)
+            act_log = np.vstack([act_log,act_log_])
+            np.save("log/dqn10e-4/action/"+date,act_log)
+            np.save("log/dqn10e-4/reword/"+date,reword_log)
             saver.save(sess, 'saved_networks/dqn/'+date,global_step=i_episode)
             
             print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
-
+            print(act_log_[1:])
             break

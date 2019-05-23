@@ -14,8 +14,8 @@ hwnd = grabscreen.FindWindow_bySearch("envs")
 
 log = np.array([0,0,0])
 
-np.random.seed(2)
-tf.set_random_seed(2)  # reproducible
+np.random.seed(55688)
+tf.set_random_seed(55688)  # reproducible
 
 
 
@@ -31,7 +31,7 @@ GAMMA = 0.9     # reward discount in TD error
 # env = env.unwrapped
 
 N_F = 80
-N_A = 5
+N_A = 3
 
 # for i in range(4,0,-1):
 #     print(i)
@@ -260,7 +260,9 @@ class Actor(object):
             s = s[np.newaxis, :]
         probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
         # print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
-        return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
+        chooseact =  np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())
+        # print(probs.ravel(),np.argmax(probs.ravel()),end='\r')
+        return chooseact   # return a int
 
 
 class Critic(object):
@@ -362,6 +364,7 @@ ENVS = env(hwnd, N_F,nums,frame_muti = frame_muti)
 
 value_log = np.array([0,0])
 loss_log = np.array([0,0])
+act_log = np.array([0,0,0,0,0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 LR_A = 0.00001    # learning rate for actor
@@ -391,7 +394,7 @@ while True:
     track_r = []
     time.sleep(0.5)
     ENVS.action(0)
-    
+    act_log_ = np.array([0,0,0,0,0,0])
     while True:
         i_episode+=1
         a = actor.choose_action(s)
@@ -403,14 +406,14 @@ while True:
 
         if r==-1: 
             if a==3 or a==4:
-                r = 0
+                r = 0.1
             else:
                 r = -1
         elif r ==0:
             if a==3 or a==4:
                 r=0
             else:
-                r=0.8
+                r=0.5
         elif r ==1:
             if a==3 or a==4:
                 r=0
@@ -422,6 +425,16 @@ while True:
         td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
         ex_v = actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
         loss_log = np.vstack([loss_log,np.array([i_episode,td_error])])
+        if a==0:
+            act_log_[1] +=1 
+        elif a==1:
+            act_log_[2] +=1 
+        elif a==2:
+            act_log_[3] +=1
+        elif a==3:
+            act_log_[4] +=1
+        elif a==4:
+            act_log_[5] +=1
         np.save("log/A2C/loss/"+date,loss_log)
         # print('td_error:',td_error[0][0],"REWORD:",r)
         s = s_
@@ -436,6 +449,7 @@ while True:
 
 
         if  i_episode % MAX_EP_STEPS ==0:
+            act_log_[0] = i_episode
             date_ = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
             ep_rs_sum = sum(track_r)
             ENVS.reset()
@@ -448,9 +462,12 @@ while True:
             #     RENDER = True  # rendering
             
             value_log = np.vstack([value_log,np.array([i_episode,ep_rs_sum])])
+            act_log = np.vstack([act_log,act_log_])
+            np.save("log/A2C/action/"+date,act_log)
             np.save("log/A2C/reword/"+date,value_log)
             saver.save(sess, 'saved_networks/A2C/'+date,global_step=i_episode)
             
             print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
+            print(act_log_[1:])
 
             break
