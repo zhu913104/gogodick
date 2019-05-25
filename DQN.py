@@ -389,14 +389,14 @@ while True:
 
         if r==-1: 
             if a==3 or a==4:
-                r = 0.1
+                r = -0.1
             else:
                 r = -1
         elif r ==0:
             if a==3 or a==4:
                 r=0
             else:
-                r=0.5
+                r=1
         elif r ==1:
             if a==3 or a==4:
                 r=0
@@ -445,7 +445,7 @@ while True:
             act_log = np.vstack([act_log,act_log_])
             np.save("log/dqn10e-4/action/"+date,act_log)
             np.save("log/dqn10e-4/reword/"+date,reword_log)
-            saver.save(sess, 'saved_networks/dqn/'+date,global_step=i_episode)
+            saver.save(sess, 'saved_networks/dqn10e-4/'+date,global_step=i_episode)
             
             print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
             print(act_log_[1:])
