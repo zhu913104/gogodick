@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 # mode5 = np.load("log/dqn/loss/loss2019_05_19_0017.npy")
-mode6 = np.load("log/dqn10e-4/loss/2019_05_23_1255.npy")
+mode6 = np.load("log/A2C/reword/2019_05_22_2042.npy")
 # mode4 = np.load("log/mode_4_2019_03_29_1202.npy")
 # mode1 = np.load("log/mode1/one_frame_no_stack_2019_03_22_1548.npy")
 # mode2 = np.load("log/mode2/one_frame_no_stack_2019_03_27_1910.npy")
@@ -32,7 +32,7 @@ mode6 = np.load("log/dqn10e-4/loss/2019_05_23_1255.npy")
 # print("mode8 max:",mode8[500:1000,1].max(),"mode8 mean:",mode8[500:1000,1].mean(),"mean error: ",mode8[500:1000,1].std())
 # print("mode9 max:",mode9[500:1000,1].max(),"mode9 mean:",mode9[500:1000,1].mean(),"mean error: ",mode9[500:1000,1].std())
 
-print(mode6)
+print(mode6.shape)
 
 # plt.plot(mode1[1:1000,0],mode1[1:1000,1],"#FF4D00",label = "mode1")
 # plt.plot(mode2[1:1000,0],mode2[1:1000,1],"#FFA500",label = "mode2")
