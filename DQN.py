@@ -351,7 +351,7 @@ act_log = np.array([0,0,0,0,0,0])
 i_episode=0
 date = datetime.datetime.now().strftime("%Y_%m_%d_%H%M")
 LR_A = 0.00001    # learning rate for actor
-LR_C = 0.0001    # learning rate for critic
+LR_C = 0.00001    # learning rate for critic
 
 sess = tf.Session()
 critic = Critic(sess, n_features=N_F, lr=LR_C,nums=nums,frame_muti=frame_muti)     # we need a good teacher, so the teacher should  faster than the actor
@@ -361,7 +361,7 @@ sess.run(tf.global_variables_initializer())
 
 saver = tf.train.Saver()
 sess.run(tf.initialize_all_variables())
-checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn10e-4/")
+checkpoint = tf.train.get_checkpoint_state("saved_networks/dqn10e-5/")
 if checkpoint and checkpoint.model_checkpoint_path:
     saver.restore(sess, checkpoint.model_checkpoint_path)
     print("Successfully loaded:", checkpoint.model_checkpoint_path)
@@ -443,9 +443,9 @@ while True:
             
             reword_log = np.vstack([reword_log,np.array([i_episode,ep_rs_sum])])
             act_log = np.vstack([act_log,act_log_])
-            np.save("log/dqn10e-4/action/"+date,act_log)
-            np.save("log/dqn10e-4/reword/"+date,reword_log)
-            saver.save(sess, 'saved_networks/dqn10e-4/'+date,global_step=i_episode)
+            np.save("log/dqn10e-5/action/"+date,act_log)
+            np.save("log/dqn10e-5/reword/"+date,reword_log)
+            saver.save(sess, 'saved_networks/dqn10e-5/'+date,global_step=i_episode)
             
             print("episode:", i_episode, "  reward:", int(running_reward),"now  reward:",ep_rs_sum,"---",date_)
             print(act_log_[1:])
